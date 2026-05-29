@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exarch v1.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <header>
+        <div class="logo-group">
+            <div class="logo-text">Exarch</div>
+            <div class="version-text">v1.0</div>
+        </div>
+        <div class="header-right">
+            <div class="lang-switch" id="langSwitch" role="group" aria-label="Language">
+                <button type="button" class="lang-btn active" data-lang="ru" title="Русский">RU</button>
+                <button type="button" class="lang-btn" data-lang="en" title="English">EN</button>
+            </div>
+            <div class="wasm-status">
+                <span>WASM</span>
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">…</span>
+            </div>
+        </div>
+    </header>
+
+    <section class="nav-section">
+        <div id="actionTabs" class="tabs-wrapper">
+            <div class="tab-item active" data-mode="encrypt" data-i18n="tabEncrypt">Шифрование</div>
+            <div class="tab-item" data-mode="hash" data-i18n="tabHash">Хэширование</div>
+            <div class="tab-item" data-mode="encoding" data-i18n="tabEncoding">Кодирование / Декодирование</div>
+        </div>
+    </section>
+
+    <section class="settings-section glass-panel">
+        <div class="input-wrapper">
+            <label for="algoSelect" data-i18n="labelAlgo">Алгоритм</label>
+            <select id="algoSelect">
+            </select>
+        </div>
+        <div class="input-wrapper hidden" id="fileHashRow">
+            <label for="hashFileInput" data-i18n="labelHashFile">Файл для хеша</label>
+            <input type="file" id="hashFileInput">
+            <span class="hint-text" data-i18n="hintHashFile">Содержимое файла передаётся в WASM как Base64; поле ввода можно оставить пустым.</span>
+        </div>
+        <div class="input-wrapper encoding-map-group hidden" id="encodingMapGroup">
+            <div class="input-wrapper">
+                <label for="fromEncodingSelect" data-i18n="incoder">Из кодировки</label>
+                <select id="fromEncodingSelect">
+                    <option value="utf-8">Unicode UTF-8</option>
+                    <option value="utf-16">Unicode UTF-16</option>
+                    <option value="ascii">ASCII</option>
+                    <option value="cp866">CP866</option>
+                    <option value="windows-1251">Windows-1251</option>
+                    <option value="iso-8859-1">ISO 8859-1</option>
+                </select>
+            </div>
+            <div class="encoding-arrow">→</div>
+            <div class="input-wrapper">
+                <label for="toEncodingSelect" data-i18n="toEncoder">В кодировку</label>
+                <select id="toEncodingSelect">
+                    <option value="utf-16">Unicode UTF-16</option>
+                    <option value="utf-8" selected>Unicode UTF-8</option>
+                    <option value="ascii">ASCII</option>
+                    <option value="cp866">CP866</option>
+                    <option value="windows-1251">Windows-1251</option>
+                    <option value="iso-8859-1">ISO 8859-1</option>
+                </select>
+            </div>
+        </div>
+        <div class="input-wrapper" id="keyGroup">
+            <label for="keyInput" id="keyLabel">Ключ / Сдвиг</label>
+            <input type="text" id="keyInput" placeholder="Введите секретный ключ..." data-i18n-placeholder="keyPlaceholderDefault">
+            <div class="keygen-row">
+                <button class="mini-btn hidden" id="genKeysBtn" type="button" data-i18n="btnGenKeys">Сгенерировать ключи</button>
+                <button class="mini-btn hidden" id="usePublicBtn" type="button" data-i18n="btnUsePublic">Вставить публичный</button>
+                <button class="mini-btn hidden" id="useSecretBtn" type="button" data-i18n="btnUseSecret">Вставить секретный</button>
+            </div>
+        </div>
+        <div id="asymHelp" class="asym-help hidden"></div>
+        <div class="input-wrapper hidden" id="outputFormatGroup">
+            <label data-i18n="labelOutFormat">Формат вывода шифрования</label>
+            <div class="format-toggle" role="group" aria-label="Output format">
+                <button type="button" class="format-btn active" data-format="hex">HEX</button>
+                <button type="button" class="format-btn" data-format="plain" data-i18n="fmtPlain">Plain</button>
+            </div>
+            <span class="hint-text" data-i18n="hintOutFormat">Для двоичных шифров в режиме Plain используется байтовое представление.</span>
+        </div>
+    </section>
+
+    <section class="workspace-section glass-panel">
+        <div class="field-box">
+            <label for="textInput" data-i18n="labelInput">Входные данные</label>
+            <div class="textarea-anchor">
+                <textarea id="textInput" data-i18n-placeholder="phInput" placeholder="Введите текст или HEX..."></textarea>
+                <div class="textarea-fab" aria-label="Input tools">
+                    <button class="fab-btn" id="copyInputBtn" type="button" title="Копировать">⎘</button>
+                    <button class="fab-btn" id="qrInputBtn" type="button" title="QR">▦</button>
+                </div>
+            </div>
+        </div>
+        <div class="field-box">
+            <label for="output" data-i18n="labelOutput">Результат</label>
+            <div class="textarea-anchor">
+                <textarea id="output" readonly data-i18n-placeholder="phOutputWait" placeholder="Ожидание загрузки библиотек..."></textarea>
+                <div class="textarea-fab" aria-label="Output tools">
+                    <button class="fab-btn" id="copyOutputBtn" type="button" title="Копировать">⎘</button>
+                    <button class="fab-btn" id="qrOutputBtn" type="button" title="QR">▦</button>
+                </div>
+            </div>
+            <div id="sharesGrid" class="shares-grid"></div>
+        </div>
+    </section>
+
+    <section class="actions-section glass-panel">
+        <button id="btnPrimary" class="btn-large btn-primary" onclick="doAction('main')" data-i18n="btnEncrypt">
+            Зашифровать
+        </button>
+        <button id="btnSecondary" class="btn-large btn-secondary" onclick="doAction('dec')" data-i18n="btnDecrypt">
+            Дешифровать
+        </button>
+    </section>
+
+    <dialog id="qrDialog" class="qr-dialog glass-panel">
+        <div class="qr-dialog-head">
+            <strong class="qr-dialog-title" data-i18n="qrTitle">QR-код</strong>
+            <button class="mini-btn" id="closeQrBtn" type="button" data-i18n="btnClose">Закрыть</button>
+        </div>
+        <img id="qrImage" alt="QR" class="qr-dialog-img">
+        <div class="qr-dialog-hint" data-i18n="qrHint">Длинные данные дают плотный QR.</div>
+    </dialog>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        const STRINGS = {
+            ru: {
+                tabEncrypt: 'Шифрование', tabHash: 'Хэширование', tabEncoding: 'Кодирование / Декодирование',
+                labelAlgo: 'Алгоритм', labelInput: 'Входные данные', labelOutput: 'Результат',
+                labelHashFile: 'Файл для хеша', hintHashFile: 'Содержимое файла передаётся в WASM (префикс b64:). Поле ввода можно оставить пустым.',
+                btnCopy: 'Копировать', btnQr: 'QR', btnClose: 'Закрыть', btnGenKeys: 'Сгенерировать ключи',
+                btnUsePublic: 'В публичный ключ', btnUseSecret: 'В секретный ключ',
+                btnEncrypt: 'Зашифровать', btnDecrypt: 'Дешифровать', btnEncode: 'Кодировать', btnDecode: 'Декодировать', btnHash: 'Хэшировать',
+                qrTitle: 'QR-код', qrHint: 'Длинные данные дают плотный QR.',
+                wasmLoading: 'Загрузка…', wasmReady: 'Готов', wasmError: 'Ошибка',
+                phInput: 'Введите текст или HEX…', phOutputWait: 'Ожидание WASM…', phOutputReady: 'Выберите действие и введите данные.',
+                phCharset: 'Encode: обычный текст. Decode: HEX байтов целевой кодировки.',
+                keyPassHex: 'Ключ / пароль (или HEX ключа)', keyPlaceholderHex: 'Пароль или HEX ключа',
+                keyPoly130: 'Ключ Poly1305', keyPoly130Ph: 'HEX 32 байта или строка (будет хэширована)',
+                keyVisualShares: 'Число долей (shares)', keyVisualSharesPh: '2, 3, 4…',
+                keyEncDefault: 'Ключ / сдвиг', keyEncDefaultPh: 'Ключ или число сдвига',
+                keyPlaceholderDefault: 'Введите секретный ключ...',
+                toEncoder: 'В кодировку',
+                incoder: 'Из кодировки',
+                labelOutFormat: 'Формат вывода шифрования',
+                fmtPlain: 'Текст',
+                hintOutFormat: 'Для двоичных шифров в режиме "Текст" используется байтовое представление.',
+                groupSym: 'Симметричные шифры',
+                groupAsym: 'Асимметрия / обмен ключами',
+                groupHash: 'Хэш-функции',
+                groupMac: 'MAC / аутентификация',
+                groupSpecial: 'Кодирование и спец. алгоритмы',
+                optCharsetConvert: 'Конвертер кодировок (HEX)',
+                optVisualCipher: 'Визуальный шифр (доли)',
+                optRot: 'ROT (сдвиг)',
+                copied: '✓',
+                errEmptyHash: 'Укажите текст или выберите файл.',
+                errQrEmpty: 'Нечего кодировать в QR.',
+                errProcess: 'Ошибка:',
+                errKeygen: 'Ошибка генерации ключей:',
+                errCopy: 'Ошибка копирования:',
+                visualDecodeHint: 'Декодирование: наложите все доли (XOR по пикселям), чтобы прочитать текст.',
+                visualDone: (n) => `Создано ${n} долей. Наложите их, чтобы увидеть скрытый текст.`,
+                titleDoc: 'Exarch v1.0',
+                asymNone: '',
+                asymEcdh: '<strong>ECDH (P-256)</strong> — обмен ключами: в поле <em>данных</em> укажите публичный ключ собеседника (HEX), в поле <em>ключа</em> — свой секретный (HEX). Результат — общий секрет (HEX). Кнопки «Сгенерировать» создают пару PUBLIC/SECRET.',
+                asymEcc: '<strong>ECIES (P-256)</strong> — шифрование на публичный ключ: в поле <em>ключа</em> — публичный получателя (HEX), в <em>данных</em> — открытый текст. Расшифрование: в <em>данных</em> — HEX пакета, в <em>ключе</em> — секретный получателя.',
+                asymX25519: '<strong>X25519</strong> — как ECDH: в данных публичный peer, в ключе ваш секрет; на выходе общий секрет (HEX).'
+            },
+            en: {
+                tabEncrypt: 'Encryption', tabHash: 'Hashing', tabEncoding: 'Encoding / decoding',
+                labelAlgo: 'Algorithm', labelInput: 'Input', labelOutput: 'Result',
+                labelHashFile: 'File to hash', hintHashFile: 'File bytes are sent to WASM as Base64 (b64: prefix). Input field may stay empty.',
+                btnCopy: 'Copy', btnQr: 'QR', btnClose: 'Close', btnGenKeys: 'Generate keys',
+                btnUsePublic: 'Use public', btnUseSecret: 'Use secret',
+                btnEncrypt: 'Encrypt', btnDecrypt: 'Decrypt', btnEncode: 'Encode', btnDecode: 'Decode', btnHash: 'Hash',
+                qrTitle: 'QR code', qrHint: 'Long payloads produce a dense QR.',
+                wasmLoading: 'Loading…', wasmReady: 'Ready', wasmError: 'Error',
+                phInput: 'Enter text or HEX…', phOutputWait: 'Waiting for WASM…', phOutputReady: 'Pick an action and enter data.',
+                phCharset: 'Encode: plain text. Decode: HEX of bytes in the target encoding.',
+                keyPassHex: 'Key / password (or raw key HEX)', keyPlaceholderHex: 'Password or key HEX',
+                keyPoly130: 'Poly1305 key', keyPoly130Ph: 'HEX (32 bytes) or string (will be derived)',
+                keyVisualShares: 'Number of shares', keyVisualSharesPh: '2, 3, 4…',
+                keyEncDefault: 'Key / shift', keyEncDefaultPh: 'Key or shift number',
+                keyPlaceholderDefault: 'Enter secret key...',
+                toEncoder: 'To encoding',
+                incoder: 'From encoding',
+                labelOutFormat: 'Encryption output format',
+                fmtPlain: 'Plain',
+                hintOutFormat: 'For binary ciphers, "Plain" uses a byte-string representation.',
+                groupSym: 'Symmetric ciphers',
+                groupAsym: 'Asymmetric / key exchange',
+                groupHash: 'Hash functions',
+                groupMac: 'MAC / authentication',
+                groupSpecial: 'Encoding & special algorithms',
+                optCharsetConvert: 'Charset converter (HEX)',
+                optVisualCipher: 'Visual cipher (shares)',
+                optRot: 'ROT (shift)',
+                copied: '✓',
+                errEmptyHash: 'Enter text or choose a file.',
+                errQrEmpty: 'Nothing to encode as QR.',
+                errProcess: 'Error:',
+                errKeygen: 'Keygen error:',
+                errCopy: 'Copy error:',
+                visualDecodeHint: 'Decoding: stack all shares (XOR per channel) to read the text.',
+                visualDone: (n) => `${n} shares created. Stack them to reveal the text.`,
+                titleDoc: 'Exarch v1.0',
+                asymNone: '',
+                asymEcdh: '<strong>ECDH (P-256)</strong> — key agreement: put the peer’s <em>public</em> key (HEX) in <strong>Input</strong>, your <em>secret</em> key (HEX) in <strong>Key</strong>. Output is the shared secret (HEX). “Generate keys” produces PUBLIC/SECRET lines.',
+                asymEcc: '<strong>ECIES (P-256)</strong> — encrypt to a public key: put the recipient’s <em>public</em> key (HEX) in <strong>Key</strong>, plaintext in <strong>Input</strong>. Decrypt: ciphertext HEX in <strong>Input</strong>, recipient <em>secret</em> in <strong>Key</strong>.',
+                asymX25519: '<strong>X25519</strong> — same pattern as ECDH: peer public in Input, your secret in Key; output is shared secret (HEX).'
+            }
+        };
+
+        let lang = localStorage.getItem('exarchLang') || 'ru';
+        function t(key) {
+            const L = STRINGS[lang] || STRINGS.ru;
+            const v = L[key];
+            return typeof v === 'function' ? v : (v != null ? v : key);
+        }
+
+        function applyLang() {
+            document.documentElement.lang = lang === 'en' ? 'en' : 'ru';
+            document.title = t('titleDoc');
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const k = el.getAttribute('data-i18n');
+                if (k && typeof t(k) === 'string') el.textContent = t(k);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const k = el.getAttribute('data-i18n-placeholder');
+                if (k) el.placeholder = t(k);
+            });
+            document.querySelectorAll('.lang-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.lang === lang);
+            });
+            if (typeof refreshDerivedLangUI === 'function') refreshDerivedLangUI();
+        }
+
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                lang = btn.dataset.lang || 'ru';
+                localStorage.setItem('exarchLang', lang);
+                applyLang();
+            });
+        });
+
+        const go = new Go();
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const outputField = document.getElementById('output');
+
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+            statusDot.classList.add('active');
+            statusText.textContent = t('wasmReady');
+            statusText.style.color = '';
+            outputField.value = t('phOutputReady');
+            setInterfaceDisabled(false);
+        }).catch(err => {
+            statusText.textContent = t('wasmError');
+            statusText.style.color = '#dc3545';
+            outputField.value = `${t('errProcess')} WASM: ${err}`;
+            console.error(err);
+        });
+
+        const algoSelect = document.getElementById('algoSelect');
+        const keyGroup = document.getElementById('keyGroup');
+        const keyLabel = document.getElementById('keyLabel');
+        const keyInput = document.getElementById('keyInput');
+        const textInput = document.getElementById('textInput');
+        const fromEncodingSelect = document.getElementById('fromEncodingSelect');
+        const toEncodingSelect = document.getElementById('toEncodingSelect');
+        const encodingMapGroup = document.getElementById('encodingMapGroup');
+        const fileHashRow = document.getElementById('fileHashRow');
+        const hashFileInput = document.getElementById('hashFileInput');
+        const asymHelp = document.getElementById('asymHelp');
+
+        const btnPrimary = document.getElementById('btnPrimary');
+        const btnSecondary = document.getElementById('btnSecondary');
+        const copyInputBtn = document.getElementById('copyInputBtn');
+        const copyOutputBtn = document.getElementById('copyOutputBtn');
+        const qrInputBtn = document.getElementById('qrInputBtn');
+        const qrOutputBtn = document.getElementById('qrOutputBtn');
+        const qrDialog = document.getElementById('qrDialog');
+        const qrImage = document.getElementById('qrImage');
+        const closeQrBtn = document.getElementById('closeQrBtn');
+        const genKeysBtn = document.getElementById('genKeysBtn');
+        const usePublicBtn = document.getElementById('usePublicBtn');
+        const useSecretBtn = document.getElementById('useSecretBtn');
+        const sharesGrid = document.getElementById('sharesGrid');
+        const outputFormatGroup = document.getElementById('outputFormatGroup');
+        const formatButtons = document.querySelectorAll('.format-btn');
+
+        let currentMode = 'encrypt';
+        let hashFileB64 = '';
+        let outputFormat = localStorage.getItem('exarchOutputFormat') || 'hex';
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const chunk = 0x8000;
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += chunk) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+            }
+            return btoa(binary);
+        }
+
+        hashFileInput.addEventListener('change', () => {
+            const f = hashFileInput.files && hashFileInput.files[0];
+            if (!f) { hashFileB64 = ''; return; }
+            const reader = new FileReader();
+            reader.onload = () => {
+                hashFileB64 = arrayBufferToBase64(reader.result);
+            };
+            reader.readAsArrayBuffer(f);
+        });
+
+        formatButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                outputFormat = btn.dataset.format || 'hex';
+                localStorage.setItem('exarchOutputFormat', outputFormat);
+                syncFormatButtons();
+            });
+        });
+
+        function syncFormatButtons() {
+            formatButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.format === outputFormat);
+            });
+        }
+
+        const HEX_CIPHER_ALGOS = new Set([
+            'aes-gcm256', 'aes-gcm192', 'des', 'serpent', 'kuznyechik', 'cast128', 
+            'rc5', 'rc6', 'idea', 'twofish', 'blowfish', 'magma', 'chacha20', 'rc4', 'xor',
+            'camellia', 'sm4'
+        ]);
+
+        const algorithms = {
+            encrypt: {
+                options: () => `
+                    <optgroup label="${t('groupSym')}">
+                        <option value="aes-gcm256">AES-GCM 256</option>
+                        <option value="aes-gcm192">AES-GCM 192</option>
+                        <option value="des">DES</option>
+                        <option value="camellia">Camellia</option>
+                        <option value="sm4">SM4</option>
+                        <option value="serpent">Serpent</option>
+                        <option value="kuznyechik">Kuznyechik</option>
+                        <option value="cast128">CAST-128 (CAST5)</option>
+                        <option value="rc5">RC5</option>
+                        <option value="rc6">RC6</option>
+                        <option value="idea">IDEA</option>
+                        <option value="twofish">Twofish</option>
+                        <option value="blowfish">Blowfish</option>
+                        <option value="magma">Magma</option>
+                        <option value="chacha20">ChaCha20</option>
+                        <option value="enigma">Enigma</option>
+                        <option value="rc4">RC4</option>
+                    </optgroup>
+                    <optgroup label="${t('groupAsym')}">
+                        <option value="ecdh">ECDH (P-256)</option>
+                        <option value="ecc">ECC / ECIES (P-256)</option>
+                        <option value="x25519">X25519 / Curve25519</option>
+                    </optgroup>
+                `,
+                btnPrimaryKey: 'btnEncrypt',
+                btnSecondaryKey: 'btnDecrypt'
+            },
+            hash: {
+                options: () => `
+                    <optgroup label="${t('groupHash')}">
+                        <option value="md5">MD5</option>
+                        <option value="sha-1">SHA-1</option>
+                        <option value="sha-256">SHA-256</option>
+                        <option value="sha-384">SHA-384</option>
+                        <option value="sha-512">SHA-512</option>
+                        <option value="sha-224">SHA-224</option>
+                        <option value="sha-512-256">SHA-512/256</option>
+                        <option value="sha-3">SHA-3 (NIST 256)</option>
+                        <option value="sha3-keccak-224">SHA-3 Keccak-224</option>
+                        <option value="sha3-keccak-256">SHA-3 Keccak-256</option>
+                        <option value="sha3-keccak-384">SHA-3 Keccak-384</option>
+                        <option value="sha3-keccak-512">SHA-3 Keccak-512</option>
+                        <option value="blake2b">BLAKE2b-256</option>
+                        <option value="blake2s">BLAKE2s-256</option>
+                        <option value="shake128">SHAKE128 (32 bytes)</option>
+                        <option value="blake3">BLAKE3 (256)</option>
+                    </optgroup>
+                    <optgroup label="${t('groupMac')}">
+                        <option value="poly130">Poly1305</option>
+                    </optgroup>
+                `,
+                keyGroupHidden: true,
+                btnPrimaryKey: 'btnHash',
+                btnSecondaryHidden: true
+            },
+            encoding: {
+                options: () => `
+                    <optgroup label="${t('groupSpecial')}">
+                        <option value="charset-convert">${t('optCharsetConvert')}</option>
+                        <option value="visual-cipher">${t('optVisualCipher')}</option>
+                        <option value="xor">XOR</option>
+                        <option value="base16">Base16 (HEX)</option>
+                        <option value="base32">Base32</option>
+                        <option value="base64">Base64</option>
+                        <option value="base58">Base58</option>
+                        <option value="base85">Base85</option>
+                        <option value="base92">Base92</option>
+                        <option value="zbase32">ZBase32</option>
+                        <option value="base122">Base-122</option>
+                        <option value="rot">${t('optRot')}</option>
+                    </optgroup>
+                `,
+                btnPrimaryKey: 'btnEncode',
+                btnSecondaryKey: 'btnDecode'
+            }
+        };
+
+        const tabs = document.getElementById('actionTabs');
+        const tabItems = tabs.querySelectorAll('.tab-item');
+
+        tabItems.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const mode = tab.dataset.mode;
+                setActiveTab(tab);
+                setInterfaceMode(mode);
+            });
+        });
+
+        function setActiveTab(selectedTab) {
+            tabItems.forEach(t => t.classList.remove('active'));
+            selectedTab.classList.add('active');
+        }
+
+        function updateAsymHelp() {
+            if (!asymHelp) return;
+            if (currentMode !== 'encrypt') {
+                asymHelp.classList.add('hidden');
+                asymHelp.innerHTML = '';
+                return;
+            }
+            const v = algoSelect.value;
+            let html = '';
+            if (v === 'ecdh') html = t('asymEcdh');
+            else if (v === 'ecc') html = t('asymEcc');
+            else if (v === 'x25519') html = t('asymX25519');
+            if (html) {
+                asymHelp.innerHTML = '<div class="asym-help-inner">' + html + '</div>';
+                asymHelp.classList.remove('hidden');
+            } else {
+                asymHelp.innerHTML = '';
+                asymHelp.classList.add('hidden');
+            }
+        }
+
+        function refreshDerivedLangUI() {
+            updateAsymHelp();
+            rebuildAlgoOptions();
+            const data = algorithms[currentMode];
+            if (data && data.btnPrimaryKey) btnPrimary.textContent = t(data.btnPrimaryKey);
+            if (data && !data.btnSecondaryHidden && data.btnSecondaryKey) {
+                btnSecondary.textContent = t(data.btnSecondaryKey);
+            }
+            copyInputBtn.title = t('btnCopy');
+            copyOutputBtn.title = t('btnCopy');
+            qrInputBtn.title = t('btnQr');
+            qrOutputBtn.title = t('btnQr');
+            updateKeyVisibility();
+            updateEncodingControlsVisibility();
+            updateOutputFormatVisibility();
+            syncFormatButtons();
+        }
+
+        function rebuildAlgoOptions() {
+            const prev = algoSelect.value;
+            const data = algorithms[currentMode];
+            algoSelect.innerHTML = typeof data.options === 'function' ? data.options() : data.options;
+            if (prev && algoSelect.querySelector(`option[value="${prev}"]`)) {
+                algoSelect.value = prev;
+            }
+        }
+
+        function setInterfaceMode(mode) {
+            currentMode = mode;
+            const data = algorithms[mode];
+
+            if (mode !== 'hash') {
+                hashFileB64 = '';
+                if (hashFileInput) hashFileInput.value = '';
+            }
+
+            rebuildAlgoOptions();
+            fileHashRow.classList.toggle('hidden', mode !== 'hash');
+
+            if (data.keyGroupHidden) {
+                keyGroup.classList.add('hidden');
+                keyInput.required = false;
+            } else {
+                keyGroup.classList.remove('hidden');
+                keyInput.required = true;
+            }
+
+            if (data.btnPrimaryKey) btnPrimary.textContent = t(data.btnPrimaryKey);
+            if (data.btnSecondaryHidden) {
+                btnSecondary.classList.add('hidden');
+            } else {
+                btnSecondary.classList.remove('hidden');
+                if (data.btnSecondaryKey) btnSecondary.textContent = t(data.btnSecondaryKey);
+            }
+
+            updateKeyVisibility();
+            updateEncodingControlsVisibility();
+            updateKeyButtonsVisibility();
+            updateAsymHelp();
+            updateOutputFormatVisibility();
+        }
+
+        function updateKeyVisibility() {
+            if (currentMode === 'encrypt') {
+                keyGroup.classList.remove('hidden');
+                keyInput.required = true;
+                keyLabel.textContent = t('keyPassHex');
+                keyInput.placeholder = t('keyPlaceholderHex');
+            } else if (currentMode === 'hash') {
+                if (algoSelect.value === 'poly130') {
+                    keyGroup.classList.remove('hidden');
+                    keyLabel.textContent = t('keyPoly130');
+                    keyInput.placeholder = t('keyPoly130Ph');
+                    keyInput.required = true;
+                } else {
+                    keyGroup.classList.add('hidden');
+                    keyInput.required = false;
+                }
+            } else if (currentMode === 'encoding' && algoSelect.value === 'charset-convert') {
+                keyGroup.classList.add('hidden');
+                keyInput.required = false;
+            } else if (currentMode === 'encoding' && algoSelect.value === 'visual-cipher') {
+                keyGroup.classList.remove('hidden');
+                keyLabel.textContent = t('keyVisualShares');
+                keyInput.placeholder = t('keyVisualSharesPh');
+                keyInput.required = true;
+            } else if (currentMode === 'encoding') {
+                keyGroup.classList.remove('hidden');
+                keyLabel.textContent = t('keyEncDefault');
+                keyInput.placeholder = t('keyEncDefaultPh');
+                keyInput.required = true;
+            }
+        }
+
+        function updateEncodingControlsVisibility() {
+            const show = currentMode === 'encoding' && algoSelect.value === 'charset-convert';
+            encodingMapGroup.classList.toggle('hidden', !show);
+            sharesGrid.innerHTML = '';
+            textInput.placeholder = show ? t('phCharset') : t('phInput');
+        }
+
+        function updateOutputFormatVisibility() {
+            const algo = algoSelect.value;
+            const show = currentMode === 'encrypt' && HEX_CIPHER_ALGOS.has(algo);
+            outputFormatGroup.classList.toggle('hidden', !show);
+        }
+
+        function hexToByteString(hexValue) {
+            if (!hexValue) return '';
+            const clean = String(hexValue).trim();
+            if (clean.length % 2 !== 0) return clean;
+            try {
+                const bytes = [];
+                for (let i = 0; i < clean.length; i += 2) {
+                    const v = parseInt(clean.slice(i, i + 2), 16);
+                    if (Number.isNaN(v)) return clean;
+                    bytes.push(v);
+                }
+                return String.fromCharCode(...bytes);
+            } catch (_) {
+                return clean;
+            }
+        }
+
+        function byteStringToHex(value) {
+            if (!value) return '';
+            let out = '';
+            for (let i = 0; i < value.length; i++) {
+                out += value.charCodeAt(i).toString(16).padStart(2, '0');
+            }
+            return out;
+        }
+
+        function updateKeyButtonsVisibility() {
+            const asym = ['ecdh', 'ecc', 'x25519'].includes(algoSelect.value) && currentMode === 'encrypt';
+            genKeysBtn.classList.toggle('hidden', !asym);
+            usePublicBtn.classList.toggle('hidden', !asym);
+            useSecretBtn.classList.toggle('hidden', !asym);
+        }
+
+        algoSelect.addEventListener('change', () => {
+            updateKeyVisibility();
+            updateEncodingControlsVisibility();
+            updateKeyButtonsVisibility();
+            updateAsymHelp();
+            updateOutputFormatVisibility();
+        });
+
+        function setInterfaceDisabled(disabled) {
+            tabs.style.pointerEvents = disabled ? 'none' : 'auto';
+            tabs.style.opacity = disabled ? '0.6' : '1';
+            algoSelect.disabled = disabled;
+            keyInput.disabled = disabled;
+            textInput.disabled = disabled;
+            btnPrimary.disabled = disabled;
+            btnSecondary.disabled = disabled;
+            fromEncodingSelect.disabled = disabled;
+            toEncodingSelect.disabled = disabled;
+            copyInputBtn.disabled = disabled;
+            copyOutputBtn.disabled = disabled;
+            qrInputBtn.disabled = disabled;
+            qrOutputBtn.disabled = disabled;
+            genKeysBtn.disabled = disabled;
+            usePublicBtn.disabled = disabled;
+            useSecretBtn.disabled = disabled;
+            if (hashFileInput) hashFileInput.disabled = disabled;
+        }
+
+        function doAction(buttonType) {
+            const text = textInput.value;
+            const key = keyInput.value;
+            const algo = algoSelect.value;
+            let modeParam;
+
+            if (currentMode === 'hash') {
+                modeParam = 'hash';
+            } else if (currentMode === 'encoding') {
+                modeParam = (buttonType === 'main') ? 'enc' : 'dec';
+            } else {
+                modeParam = (buttonType === 'main') ? 'enc' : 'dec';
+            }
+
+            let effectiveKey = key;
+            if (currentMode === 'encoding' && algo === 'charset-convert') {
+                effectiveKey = `${fromEncodingSelect.value}>${toEncodingSelect.value}`;
+            }
+
+            if (currentMode === 'encoding' && algo === 'visual-cipher') {
+                if (buttonType === 'main') {
+                    const count = Math.max(2, parseInt(key || '2', 10) || 2);
+                    createVisualCipherShares(text, count);
+                } else {
+                    outputField.value = t('visualDecodeHint');
+                }
+                return;
+            }
+
+            let payloadText = text;
+            if (currentMode === 'encrypt' && outputFormat === 'plain' && HEX_CIPHER_ALGOS.has(algo) && buttonType !== 'main') {
+                payloadText = byteStringToHex(text);
+            }
+            if (currentMode === 'hash') {
+                if (hashFileB64) {
+                    payloadText = 'b64:' + hashFileB64;
+                } else if (!text.trim()) {
+                    outputField.value = t('errEmptyHash');
+                    return;
+                }
+            }
+
+            try {
+                let res = cryptoProcess(modeParam, algo, payloadText, effectiveKey);
+                if (currentMode === 'encrypt' && outputFormat === 'plain' && HEX_CIPHER_ALGOS.has(algo) && buttonType === 'main') {
+                    res = hexToByteString(res);
+                }
+                outputField.value = res;
+                sharesGrid.innerHTML = '';
+            } catch (e) {
+                outputField.value = `${t('errProcess')} ${e.message}`;
+            }
+        }
+
+        async function copyText(value, sourceBtn) {
+            if (!value) return;
+            try {
+                await navigator.clipboard.writeText(value);
+                const restoreIcon = sourceBtn.id.includes('qr') ? '▦' : '⎘';
+                sourceBtn.textContent = t('copied');
+                sourceBtn.classList.add('success-pop');
+                setTimeout(() => {
+                    sourceBtn.textContent = restoreIcon;
+                    sourceBtn.classList.remove('success-pop');
+                }, 900);
+            } catch (e) {
+                outputField.value = `${t('errCopy')} ${e.message}`;
+            }
+        }
+
+        function openQr(value) {
+            if (!value) {
+                outputField.value = t('errQrEmpty');
+                return;
+            }
+            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(value)}`;
+            qrDialog.showModal();
+        }
+
+        copyInputBtn.addEventListener('click', () => copyText(textInput.value, copyInputBtn));
+        copyOutputBtn.addEventListener('click', () => copyText(outputField.value, copyOutputBtn));
+        qrInputBtn.addEventListener('click', () => openQr(textInput.value));
+        qrOutputBtn.addEventListener('click', () => openQr(outputField.value));
+        closeQrBtn.addEventListener('click', () => qrDialog.close());
+
+        let lastPublicKey = '';
+        let lastSecretKey = '';
+        genKeysBtn.addEventListener('click', () => {
+            const seed = keyInput.value || textInput.value || 'exarch-seed';
+            try {
+                const res = cryptoProcess('keygen', algoSelect.value, '', seed);
+                outputField.value = res;
+                const lines = String(res).split('\n');
+                lastPublicKey = (lines.find(l => l.startsWith('PUBLIC:')) || '').replace('PUBLIC:', '').trim();
+                lastSecretKey = (lines.find(l => l.startsWith('SECRET:')) || '').replace('SECRET:', '').trim();
+            } catch (e) {
+                outputField.value = `${t('errKeygen')} ${e.message}`;
+            }
+        });
+        usePublicBtn.addEventListener('click', () => {
+            if (lastPublicKey) textInput.value = lastPublicKey;
+        });
+        useSecretBtn.addEventListener('click', () => {
+            if (lastSecretKey) keyInput.value = lastSecretKey;
+        });
+
+        function wrapLines(ctx, rawText, maxWidth) {
+            const lines = [];
+            for (const para of String(rawText).split('\n')) {
+                if (para === '') {
+                    lines.push('');
+                    continue;
+                }
+                const words = para.split(/\s+/);
+                let cur = '';
+                for (const w of words) {
+                    const trial = cur ? cur + ' ' + w : w;
+                    if (ctx.measureText(trial).width <= maxWidth) {
+                        cur = trial;
+                    } else {
+                        if (cur) lines.push(cur);
+                        if (ctx.measureText(w).width <= maxWidth) {
+                            cur = w;
+                        } else {
+                            let chunk = '';
+                            for (const ch of w) {
+                                const t2 = chunk + ch;
+                                if (ctx.measureText(t2).width <= maxWidth) chunk = t2;
+                                else {
+                                    if (chunk) lines.push(chunk);
+                                    chunk = ch;
+                                }
+                            }
+                            cur = chunk;
+                        }
+                    }
+                }
+                if (cur) lines.push(cur);
+            }
+            return lines;
+        }
+
+        function createVisualCipherShares(text, count) {
+            sharesGrid.innerHTML = '';
+            const w = 520;
+            const padX = 20;
+            const maxW = w - padX * 2;
+            const maxCanvasH = 880;
+            const measure = document.createElement('canvas').getContext('2d');
+
+            let fontSize = 26;
+            let lines = [];
+            let lineHeight = 32;
+            for (; fontSize >= 8; fontSize--) {
+                measure.font = `600 ${fontSize}px Montserrat, sans-serif`;
+                lines = wrapLines(measure, text || ' ', maxW);
+                lineHeight = fontSize * 1.35;
+                const needH = lines.length * lineHeight + 36;
+                if (needH <= maxCanvasH || fontSize === 8) break;
+            }
+
+            const h = Math.min(maxCanvasH, Math.max(200, lines.length * lineHeight + 40));
+            outputField.value = t('visualDone')(count);
+
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = w;
+            textCanvas.height = h;
+            const tctx = textCanvas.getContext('2d');
+            tctx.fillStyle = '#fff';
+            tctx.fillRect(0, 0, w, h);
+            tctx.fillStyle = '#000';
+            tctx.textAlign = 'left';
+            tctx.textBaseline = 'top';
+            tctx.font = `600 ${fontSize}px Montserrat, sans-serif`;
+            let y = 18;
+            for (const ln of lines) {
+                tctx.fillText(ln, padX, y);
+                y += lineHeight;
+            }
+            const textData = tctx.getImageData(0, 0, w, h).data;
+
+            const shares = Array.from({ length: count }, () => {
+                const c = document.createElement('canvas');
+                c.width = w;
+                c.height = h;
+                const ctx = c.getContext('2d');
+                const img = ctx.createImageData(w, h);
+                for (let i = 0; i < img.data.length; i += 4) {
+                    const v = Math.random() > 0.5 ? 0 : 255;
+                    img.data[i] = v;
+                    img.data[i + 1] = v;
+                    img.data[i + 2] = v;
+                    img.data[i + 3] = 255;
+                }
+                ctx.putImageData(img, 0, 0);
+                return c;
+            });
+
+            const allData = shares.map(c => c.getContext('2d').getImageData(0, 0, w, h));
+            for (let i = 0; i < textData.length; i += 4) {
+                const secretBit = textData[i] < 128 ? 1 : 0;
+                let parity = 0;
+                for (let s = 0; s < count - 1; s++) {
+                    parity ^= (allData[s].data[i] < 128 ? 1 : 0);
+                }
+                const finalBit = parity ^ secretBit;
+                const v = finalBit ? 0 : 255;
+                allData[count - 1].data[i] = v;
+                allData[count - 1].data[i + 1] = v;
+                allData[count - 1].data[i + 2] = v;
+                allData[count - 1].data[i + 3] = 255;
+            }
+            shares.forEach((c, idx) => {
+                c.getContext('2d').putImageData(allData[idx], 0, 0);
+                c.className = 'share-canvas';
+                c.title = 'Share ' + (idx + 1);
+                sharesGrid.appendChild(c);
+            });
+        }
+
+        setInterfaceDisabled(true);
+        statusText.textContent = t('wasmLoading');
+        setInterfaceMode('encrypt');
+        syncFormatButtons();
+        applyLang();
+    </script>
+</body>
+</html>
